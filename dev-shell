@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# "ssh" into the dev server pod - this is now the whole editing story. The pod is the sole
+# source of truth for DevExtension's source once it has booted, so a shell here at
+# /app/pkg/dev-extension edits the tree webpack is actually watching. No local copy, no push
+# step: save a file and HMR picks it up directly.
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+export KUBECONFIG="${KUBECONFIG:-$APP_DIR/.kubeconfig}"
+NS=dev-extension-system
+
+POD=$(kubectl -n "$NS" get pod -l app=devserver -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+
+if [ -z "$POD" ]; then
+  echo "no dev server pod found - enable the dev loop first (Dev Loop page, or ./dev-loop on)" >&2
+  exit 1
+fi
+
+exec kubectl -n "$NS" exec -it "$POD" -- bash -c 'cd /app/pkg/dev-extension && exec bash'
